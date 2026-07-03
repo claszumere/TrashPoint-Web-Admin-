@@ -1,0 +1,662 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* ✅ UPDATED: Body with dark mode support */
+body {
+  font-family: 'Inter', sans-serif;
+  @apply bg-gray-50 text-gray-900 transition-colors duration-300;
+}
+
+/* ✅ ADDED: Dark mode body styles */
+.dark body,
+body.dark,
+:root.dark body {
+  @apply bg-dark-50 text-dark-800;
+}
+
+/* ✅ ADDED: Dark mode base layer */
+@layer base {
+  :root {
+    --background: 250 250 249;
+    --foreground: 23 23 23;
+  }
+
+  .dark {
+    --background: 24 24 27;
+    --foreground: 244 244 245;
+  }
+
+  /* ✅ Apply dark mode to html/body */
+  .dark {
+    @apply bg-dark-50 text-dark-800;
+  }
+}
+
+/* ✅ UPDATED: Custom Scrollbar with dark mode */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-gray-100;
+}
+
+.dark ::-webkit-scrollbar-track {
+  @apply bg-dark-100;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-400 rounded-full;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  @apply bg-dark-300 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-500;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  @apply bg-dark-400;
+}
+
+/* Leaflet Map Fix */
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+  z-index: 1;
+}
+
+/* Parallax Effect */
+.parallax {
+  background-attachment: fixed;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+/* Smooth Scroll */
+html {
+  scroll-behavior: smooth;
+}
+
+/* ✅ ADDED: Dark mode transition for html */
+html {
+  @apply transition-colors duration-300;
+}
+
+html.dark {
+  @apply bg-dark-50;
+  color-scheme: dark;
+}
+
+/* Custom Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInFromBottom {
+  from {
+    transform: translateY(30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.6s ease-in-out;
+}
+
+.animate-slideIn {
+  animation: slideInFromBottom 0.6s ease-out;
+}
+
+/* ✅ UPDATED: Loading Spinner with dark mode */
+.spinner {
+  border: 3px solid rgba(0, 0, 0, 0.1);
+  border-left-color: #22c55e;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+}
+
+.dark .spinner {
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-left-color: #4ade80;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ✅ UPDATED: Table Styles with dark mode */
+.table-container {
+  @apply overflow-x-auto rounded-lg shadow;
+}
+
+.dark .table-container {
+  @apply shadow-dark-200/20;
+}
+
+table {
+  @apply w-full text-sm text-left;
+}
+
+thead {
+  @apply text-xs uppercase bg-gray-100 text-gray-700;
+}
+
+.dark thead {
+  @apply bg-dark-200 text-dark-600;
+}
+
+th {
+  @apply px-6 py-3 font-semibold;
+}
+
+td {
+  @apply px-6 py-4;
+}
+
+tbody tr {
+  @apply bg-white border-b hover:bg-gray-50 transition-colors;
+}
+
+.dark tbody tr {
+  @apply bg-dark-100 border-dark-200 hover:bg-dark-200;
+}
+
+tbody tr:nth-child(even) {
+  @apply bg-gray-50;
+}
+
+.dark tbody tr:nth-child(even) {
+  @apply bg-dark-100/50;
+}
+
+/* ✅ ADDED: Dark mode utility classes */
+@layer utilities {
+  /* Card styles */
+  .card {
+    @apply bg-white rounded-2xl shadow-lg border border-gray-100 transition-colors duration-300;
+  }
+
+  .dark .card {
+    @apply bg-dark-100 border-dark-200 shadow-dark-200/10;
+  }
+
+  /* Input styles */
+  .input {
+    @apply bg-white border-2 border-gray-200 rounded-xl px-4 py-3 
+           focus:ring-2 focus:ring-primary-500 focus:border-primary-500 
+           transition-colors duration-300;
+  }
+
+  .dark .input {
+    @apply bg-dark-100 border-dark-200 text-dark-800 
+           placeholder-dark-500 focus:border-primary-400;
+  }
+
+  /* Button styles */
+  .btn-primary {
+    @apply bg-gradient-to-r from-primary-600 to-primary-700 text-white 
+           px-6 py-3 rounded-xl font-semibold shadow-lg 
+           hover:from-primary-700 hover:to-primary-800 
+           transition-all duration-300;
+  }
+
+  .dark .btn-primary {
+    @apply from-primary-500 to-primary-600 
+           hover:from-primary-600 hover:to-primary-700;
+  }
+
+  .btn-secondary {
+    @apply bg-gray-100 text-gray-700 px-6 py-3 rounded-xl font-semibold 
+           hover:bg-gray-200 transition-all duration-300;
+  }
+
+  .dark .btn-secondary {
+    @apply bg-dark-200 text-dark-700 hover:bg-dark-300;
+  }
+
+  /* Text colors */
+  .text-primary-custom {
+    @apply text-gray-900;
+  }
+
+  .dark .text-primary-custom {
+    @apply text-dark-800;
+  }
+
+  .text-secondary-custom {
+    @apply text-gray-600;
+  }
+
+  .dark .text-secondary-custom {
+    @apply text-dark-600;
+  }
+
+  /* Background colors */
+  .bg-page {
+    @apply bg-gray-50;
+  }
+
+  .dark .bg-page {
+    @apply bg-dark-50;
+  }
+
+  .bg-card {
+    @apply bg-white;
+  }
+
+  .dark .bg-card {
+    @apply bg-dark-100;
+  }
+
+  /* Border colors */
+  .border-custom {
+    @apply border-gray-200;
+  }
+
+  .dark .border-custom {
+    @apply border-dark-200;
+  }
+}
+
+/* ✅ ADDED: Dark mode form elements */
+.dark input,
+.dark select,
+.dark textarea {
+  @apply bg-dark-100 border-dark-200 text-dark-800;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  @apply text-dark-500;
+}
+
+.dark input:focus,
+.dark select:focus,
+.dark textarea:focus {
+  @apply border-primary-400 ring-primary-400/20;
+}
+
+/* ✅ ADDED: Dark mode select dropdown */
+.dark select option {
+  @apply bg-dark-100 text-dark-800;
+}
+
+/* ✅ ADDED: Dark mode modal/dialog backdrop */
+.modal-backdrop {
+  @apply bg-black/60 backdrop-blur-sm;
+}
+
+.dark .modal-backdrop {
+  @apply bg-black/70;
+}
+
+/* ✅ ADDED: Dark mode alerts */
+.alert-success {
+  @apply bg-green-50 border-green-200 text-green-800;
+}
+
+.dark .alert-success {
+  @apply bg-green-900/20 border-green-800 text-green-400;
+}
+
+.alert-error {
+  @apply bg-red-50 border-red-200 text-red-800;
+}
+
+.dark .alert-error {
+  @apply bg-red-900/20 border-red-800 text-red-400;
+}
+
+.alert-warning {
+  @apply bg-yellow-50 border-yellow-200 text-yellow-800;
+}
+
+.dark .alert-warning {
+  @apply bg-yellow-900/20 border-yellow-800 text-yellow-400;
+}
+
+.alert-info {
+  @apply bg-blue-50 border-blue-200 text-blue-800;
+}
+
+.dark .alert-info {
+  @apply bg-blue-900/20 border-blue-800 text-blue-400;
+}
+
+/* ✅ ADDED: Dark mode tooltips */
+.tooltip {
+  @apply bg-gray-800 text-white text-xs px-2 py-1 rounded-lg;
+}
+
+.dark .tooltip {
+  @apply bg-dark-200 text-dark-800;
+}
+
+/* ✅ ADDED: Smooth color transitions for theme switch */
+*, *::before, *::after {
+  @apply transition-colors duration-200;
+}
+
+/* Exclude certain elements from transition */
+.no-transition,
+.no-transition *,
+img,
+svg,
+video,
+canvas {
+  transition: none !important;
+}
+
+
+/* ============================================
+   🌙 GLOBAL DARK MODE OVERRIDES
+   Add this at the END of your index.css
+   ============================================ */
+
+/* ✅ Cards and Panels */
+.dark .bg-white {
+  @apply bg-dark-100 !important;
+}
+
+/* ✅ Gray backgrounds */
+.dark .bg-gray-50 {
+  @apply bg-dark-50 !important;
+}
+
+.dark .bg-gray-100 {
+  @apply bg-dark-200 !important;
+}
+
+/* ✅ Text colors */
+.dark .text-gray-900 {
+  @apply text-dark-800 !important;
+}
+
+.dark .text-gray-800 {
+  @apply text-dark-800 !important;
+}
+
+.dark .text-gray-700 {
+  @apply text-dark-700 !important;
+}
+
+.dark .text-gray-600 {
+  @apply text-dark-600 !important;
+}
+
+.dark .text-gray-500 {
+  @apply text-dark-500 !important;
+}
+
+.dark .text-gray-400 {
+  @apply text-dark-500 !important;
+}
+
+/* ✅ Border colors */
+.dark .border-gray-200 {
+  @apply border-dark-200 !important;
+}
+
+.dark .border-gray-100 {
+  @apply border-dark-300 !important;
+}
+
+.dark .border-gray-300 {
+  @apply border-dark-300 !important;
+}
+
+/* ✅ Hover states */
+.dark .hover\:bg-gray-50:hover {
+  @apply bg-dark-200 !important;
+}
+
+.dark .hover\:bg-gray-100:hover {
+  @apply bg-dark-300 !important;
+}
+
+/* ✅ Focus states */
+.dark .focus\:ring-gray-500:focus {
+  @apply ring-dark-400 !important;
+}
+
+/* ✅ Divide colors (for tables) */
+.dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
+  @apply border-dark-200 !important;
+}
+
+/* ✅ Shadow adjustments for dark mode */
+.dark .shadow-sm,
+.dark .shadow,
+.dark .shadow-md,
+.dark .shadow-lg,
+.dark .shadow-xl,
+.dark .shadow-2xl {
+  --tw-shadow-color: rgba(0, 0, 0, 0.3);
+}
+
+/* ✅ Input fields */
+.dark input:not([type="checkbox"]):not([type="radio"]),
+.dark select,
+.dark textarea {
+  @apply bg-dark-100 border-dark-200 text-dark-800 !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  @apply text-dark-500 !important;
+}
+
+/* ✅ Select dropdowns */
+.dark select option {
+  @apply bg-dark-100 text-dark-800 !important;
+}
+
+/* ✅ Tables */
+.dark table {
+  @apply text-dark-700 !important;
+}
+
+.dark thead {
+  @apply bg-dark-200 text-dark-600 !important;
+}
+
+.dark tbody tr {
+  @apply bg-dark-100 border-dark-200 !important;
+}
+
+.dark tbody tr:hover {
+  @apply bg-dark-200 !important;
+}
+
+.dark tbody tr:nth-child(even) {
+  @apply bg-dark-100/50 !important;
+}
+
+.dark th,
+.dark td {
+  @apply border-dark-200 !important;
+}
+
+/* ✅ Cards with rounded corners and shadows */
+.dark [class*="rounded"][class*="shadow"][class*="bg-white"] {
+  @apply bg-dark-100 border-dark-200 !important;
+}
+
+/* ✅ Modals and Dialogs */
+.dark [class*="modal"],
+.dark [class*="dialog"],
+.dark [role="dialog"] {
+  @apply bg-dark-100 !important;
+}
+
+/* ✅ Dropdown menus */
+.dark [class*="dropdown"],
+.dark [class*="menu"] {
+  @apply bg-dark-100 border-dark-200 !important;
+}
+
+/* ✅ Tooltips */
+.dark [class*="tooltip"] {
+  @apply bg-dark-200 text-dark-800 !important;
+}
+
+/* ✅ Badges and Pills - Keep their original colors but adjust if needed */
+.dark .bg-gray-200 {
+  @apply bg-dark-300 !important;
+}
+
+/* ✅ Recharts (for your pie chart) */
+.dark .recharts-wrapper {
+  @apply text-dark-700 !important;
+}
+
+.dark .recharts-text {
+  fill: #d4d4d8 !important;
+}
+
+.dark .recharts-cartesian-grid line {
+  stroke: #3f3f46 !important;
+}
+
+.dark .recharts-tooltip-wrapper .recharts-default-tooltip {
+  @apply bg-dark-100 border-dark-200 !important;
+  background-color: #27272a !important;
+  border-color: #3f3f46 !important;
+}
+
+.dark .recharts-legend-item-text {
+  color: #d4d4d8 !important;
+}
+
+/* ✅ Placeholder images and avatars background */
+.dark .bg-gray-300 {
+  @apply bg-dark-300 !important;
+}
+
+/* ✅ Ring colors */
+.dark .ring-gray-200 {
+  @apply ring-dark-200 !important;
+}
+
+.dark .ring-gray-300 {
+  @apply ring-dark-300 !important;
+}
+
+/* ✅ Focus ring for primary */
+.dark .focus\:ring-primary-500:focus {
+  @apply ring-primary-400 !important;
+}
+
+/* ✅ Gradient backgrounds - keep them but make text visible */
+.dark .from-gray-50,
+.dark .to-gray-50 {
+  --tw-gradient-from: #18181b !important;
+  --tw-gradient-to: #18181b !important;
+}
+
+.dark .from-gray-100,
+.dark .to-gray-100 {
+  --tw-gradient-from: #27272a !important;
+  --tw-gradient-to: #27272a !important;
+}
+
+/* ✅ Specific fix for stat cards with white background */
+.dark .bg-white.rounded-2xl,
+.dark .bg-white.rounded-xl,
+.dark .bg-white.rounded-lg {
+  @apply bg-dark-100 !important;
+}
+
+/* ✅ Fix for any remaining light backgrounds in dark mode */
+.dark [class*="bg-white"] {
+  background-color: #27272a !important;
+}
+
+.dark [class*="bg-gray-50"] {
+  background-color: #18181b !important;
+}
+
+/* Add to your existing index.css */
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-slideInRight {
+  animation: slideInRight 0.3s ease-out forwards;
+}
+
+.animate-scaleIn {
+  animation: scaleIn 0.2s ease-out forwards;
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease-out forwards;
+}
+
+@keyframes messageAppear {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-message-appear {
+  animation: messageAppear 0.3s ease-out forwards;
+}
