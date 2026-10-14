@@ -1,6 +1,6 @@
 // src/services/activityLog.js
 
-import { supabase } from './supabase'
+import { buildIlikeOrFilter, supabase } from './supabase'
 
 // Activity action types
 export const ACTIONS = {
@@ -140,8 +140,14 @@ export const getActivityLogs = async ({
       query = query.lte('created_at', endDate)
     }
 
-    if (searchTerm) {
-      query = query.or(`description.ilike.%${searchTerm}%,entity_name.ilike.%${searchTerm}%,user_email.ilike.%${searchTerm}%`)
+    const searchFilter = buildIlikeOrFilter([
+      'description',
+      'entity_name',
+      'user_email',
+    ], searchTerm)
+
+    if (searchFilter) {
+      query = query.or(searchFilter)
     }
 
     // Pagination
@@ -213,12 +219,31 @@ export const getActivityStats = async (days = 7) => {
 }
 
 /**
- * Delete old activity logs (cleanup)
+ * Delete old activity logs only when explicitly requested.
+ * Audit history is not cleaned up by default or by ordinary page loads.
  */
-export const deleteOldLogs = async (daysOld = 90) => {
+export const deleteOldLogs = async ({ daysOld = 90, confirm = false } = {}) => {
+  if (confirm !== true) {
+    return {
+      success: false,
+      error: {
+        message: 'Activity log cleanup is disabled unless explicitly confirmed. Pass { confirm: true } only from an intentional admin cleanup action.',
+      },
+    }
+  }
+
+  const retentionDays = Number(daysOld)
+
+  if (!Number.isInteger(retentionDays) || retentionDays < 30) {
+    return {
+      success: false,
+      error: { message: 'Activity log cleanup requires an explicit retention period of at least 30 days.' },
+    }
+  }
+
   try {
     const cutoffDate = new Date()
-    cutoffDate.setDate(cutoffDate.getDate() - daysOld)
+    cutoffDate.setDate(cutoffDate.getDate() - retentionDays)
 
     const { error } = await supabase
       .from('activity_logs')

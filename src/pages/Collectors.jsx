@@ -263,9 +263,9 @@ const Collectors = () => {
   const handleDeleteCollector = (collector) => {
     setConfirmModal({
       isOpen: true,
-      title: 'Delete Collector',
-      type: 'danger',
-      confirmText: 'Yes, Delete',
+      title: 'Deactivate Collector',
+      type: 'warning',
+      confirmText: 'Deactivate',
       cancelText: 'Cancel',
       isLoading: false,
       collectorData: collector,
@@ -297,66 +297,39 @@ const Collectors = () => {
 
     try {
       if (actionType === 'delete') {
-        const { data: collectionLogs } = await supabase
-          .from('collection_logs')
-          .select('id')
-          .eq('collector_id', collectorData.id)
-          .limit(1)
-
-        const { data: reports } = await supabase
-          .from('reports')
-          .select('id')
-          .eq('collector_id', collectorData.id)
-          .limit(1)
-
-        const hasRelatedRecords = (collectionLogs && collectionLogs.length > 0) || (reports && reports.length > 0)
-
-        const mutation = hasRelatedRecords
-          ? supabase
-              .from('collectors')
-              .update({ is_active: false })
-              .eq('id', collectorData.id)
-          : supabase
-              .from('collectors')
-              .delete()
-              .eq('id', collectorData.id)
-
-        const { error } = await mutation
+        const { error } = await supabase
+          .from('collectors')
+          .update({ is_active: false })
+          .eq('id', collectorData.id)
 
         if (error) throw error
 
-        setCollectors(prev => hasRelatedRecords
-          ? prev.map(c => c.id === collectorData.id ? { ...c, is_active: false } : c)
-          : prev.filter(c => c.id !== collectorData.id)
-        )
-        
+        setCollectors(prev => prev.map(c => c.id === collectorData.id ? { ...c, is_active: false } : c))
+
         if (selectedCollector?.id === collectorData.id) {
-          setSelectedCollector(hasRelatedRecords ? { ...selectedCollector, is_active: false } : null)
+          setSelectedCollector({ ...selectedCollector, is_active: false })
         }
 
         await logActivity({
-          action: hasRelatedRecords ? ACTIONS.DEACTIVATE : ACTIONS.DELETE,
+          action: ACTIONS.DEACTIVATE,
           entityType: ENTITIES.COLLECTOR,
           entityId: collectorData.id,
           entityName: collectorData.name,
-          description: hasRelatedRecords
-            ? `Deactivated collector: ${collectorData.name} because related history exists`
-            : `Deleted collector: ${collectorData.name}`,
+          description: `Deactivated collector: ${collectorData.name}`,
           metadata: {
             email: collectorData.email,
             vehicle_number: collectorData.vehicle_number,
             assigned_area: collectorData.assigned_area,
             was_active: collectorData.is_active,
-            preservedHistory: hasRelatedRecords
+            preservedHistory: true
           }
         })
 
         showSuccess(
-          hasRelatedRecords
-            ? `"${collectorData.name}" has been deactivated to preserve related reports/collections. Revoke auth access from a secure backend/admin console if needed.`
-            : `"${collectorData.name}" has been removed from the collectors table. Remove the auth user from a secure backend/admin console if login must be revoked.`,
-          hasRelatedRecords ? 'Collector Deactivated' : 'Collector Deleted'
+          `"${collectorData.name}" has been deactivated to preserve related reports/collections. Revoke auth access from a secure backend/admin console if login must be blocked.`,
+          'Collector Deactivated'
         )
+
 
       } else if (actionType === 'toggle') {
         // Toggle status
@@ -619,7 +592,7 @@ const Collectors = () => {
                       }}
                       disabled={deleting === collector.id}
                       className="bg-red-500/80 hover:bg-red-600 backdrop-blur-sm p-2 rounded-lg text-white transition-all opacity-0 group-hover:opacity-100 disabled:opacity-50"
-                      title="Delete Collector"
+                      title="Deactivate Collector"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -728,7 +701,7 @@ const Collectors = () => {
                         onClick={() => handleDeleteCollector(collector)}
                         className="bg-red-500 text-white px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-red-600"
                       >
-                        Delete
+                        Deactivate
                       </button>
                     </div>
                   </td>
@@ -836,10 +809,10 @@ const Collectors = () => {
                       <p className={`font-semibold mb-2 ${
                         confirmModal.type === 'danger' ? 'text-red-800' : 'text-gray-800'
                       }`}>
-                        ⚠️ This action cannot be undone!
+                        This deactivates the collector instead of deleting history.
                       </p>
-                      <p className="text-red-700">
-                        This will permanently remove the collector account, login credentials, and all collection history.
+                      <p className="text-amber-700">
+                        Collection and report records stay intact. Auth access still needs a secure backend revocation if login must be blocked.
                       </p>
                     </div>
                   ) : (
@@ -1111,7 +1084,7 @@ const Collectors = () => {
                   onClick={() => handleDeleteCollector(selectedCollector)}
                   className="bg-red-500 text-white py-3 rounded-xl hover:bg-red-600 font-semibold"
                 >
-                  Delete
+                  Deactivate
                 </button>
                 <button
                   onClick={() => setSelectedCollector(null)}

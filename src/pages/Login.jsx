@@ -7,7 +7,7 @@ const Login = () => {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { signIn } = useAuth()
+  const { signIn, adminRoleWarning } = useAuth()
   const navigate = useNavigate()
 
   const handleSubmit = async (e) => {
@@ -47,6 +47,14 @@ const Login = () => {
           <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
             Sign In to Dashboard
           </h2>
+
+          {/* Security Warning */}
+          {adminRoleWarning && (
+            <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg">
+              <p className="text-sm font-semibold">Admin role enforcement is disabled.</p>
+              <p className="text-xs mt-1">Use this only for local/dev bootstrapping. Production should set VITE_REQUIRE_ADMIN_ROLE=true and enforce trusted Supabase roles/RLS.</p>
+            </div>
+          )}
 
           {/* Error Message */}
           {error && (

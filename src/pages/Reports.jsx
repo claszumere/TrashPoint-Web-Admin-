@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import ReportsTable from '../components/reports/ReportsTable'
 import ReportFilters from '../components/reports/ReportFilters'
-import { supabase, getAllDataForReports } from '../services/supabase'
+import { supabase, getAllDataForReports, deleteCollectionLog, deleteReport } from '../services/supabase'
 import { useNotification } from '../context/NotificationContext'
 import { logActivity, ACTIONS, ENTITIES } from '../services/activityLog'
 
@@ -515,51 +515,47 @@ const Reports = () => {
             </div>
           </div>
 
-          <div className="bg-red-50 border border-red-200 rounded-xl p-3">
-            <p className="text-sm text-red-700 flex items-center gap-2">
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+            <p className="text-sm text-amber-700 flex items-center gap-2">
               <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
-              <span>This action cannot be undone.</span>
+              <span>This record will be deactivated/soft-deleted so audit history can be retained.</span>
             </p>
           </div>
         </div>
       ),
-      type: 'danger',
-      confirmText: isCollectionLog ? 'Delete Log' : 'Delete Report',
+      type: 'warning',
+      confirmText: isCollectionLog ? 'Deactivate Log' : 'Deactivate Report',
       cancelText: 'Cancel',
       onConfirm: async () => {
         try {
-          const tableName = isCollectionLog ? 'collection_logs' : 'reports'
-          
-          const { error } = await supabase
-            .from(tableName)
-            .delete()
-            .eq('id', reportId)
+          const { error } = isCollectionLog
+            ? await deleteCollectionLog(reportId)
+            : await deleteReport(reportId)
 
           if (error) throw error
 
           setReports(prev => prev.filter(r => r.id !== reportId))
 
           await logActivity({
-            action: ACTIONS.DELETE,
+            action: ACTIONS.DEACTIVATE,
             entityType: isCollectionLog ? ENTITIES.COLLECTION : ENTITIES.REPORT,
             entityId: reportId,
             entityName: report?.residents?.name,
-            description: `Deleted ${isCollectionLog ? 'collection log' : 'violation report'} for "${report?.residents?.name || 'Unknown'}" with ${types.length} type(s)`
+            description: `Deactivated ${isCollectionLog ? 'collection log' : 'violation report'} for "${report?.residents?.name || 'Unknown'}" with ${types.length} type(s)`
           })
-          
+
           showSuccess(
-            `The ${isCollectionLog ? 'collection log' : 'violation report'} has been permanently deleted.`,
-            isCollectionLog ? 'Log Deleted' : 'Report Deleted'
+            `The ${isCollectionLog ? 'collection log' : 'violation report'} has been deactivated and retained for audit history.`,
+            isCollectionLog ? 'Log Deactivated' : 'Report Deactivated'
           )
+
         } catch (error) {
-          console.error('Error deleting:', error)
-          showError(
-            `Failed to delete: ${error.message}`,
-            'Delete Failed'
-          )
+          console.error('Deactivate error:', error)
+          showError(`Failed to deactivate ${isCollectionLog ? 'log' : 'report'}: ${error.message}`, 'Deactivate Failed')
         }
+
       }
     })
   }

@@ -215,10 +215,24 @@ export const getUniqueTypes = (typesArrays) => {
   return Array.from(allTypes).sort()
 }
 
-const sanitizeSearchTerm = (term) => String(term ?? '')
-  .replace(/[%,()]/g, ' ')
+export const sanitizeSearchTerm = (term) => String(term ?? '')
+  // PostgREST .or(...) uses commas, parentheses, quotes, and percent signs as
+  // control characters. Treat search input as plain text so it cannot alter the
+  // filter expression generated below.
+  .replace(/[\\%"'`,(){}[\]]/g, ' ')
   .replace(/\s+/g, ' ')
   .trim()
+  .slice(0, 100)
+
+export const buildIlikeOrFilter = (columns, searchTerm) => {
+  const sanitizedTerm = sanitizeSearchTerm(searchTerm)
+
+  if (!sanitizedTerm) return null
+
+  return columns
+    .map(column => `${column}.ilike.%${sanitizedTerm}%`)
+    .join(',')
+}
 
 // ==================== QR CODE UTILITIES ====================
 
@@ -429,7 +443,7 @@ export const searchResidents = async (searchTerm) => {
   const { data, error } = await supabase
     .from('residents')
     .select('*')
-    .or(`name.ilike.%${sanitizedTerm}%,email.ilike.%${sanitizedTerm}%,address.ilike.%${sanitizedTerm}%,qr_code.ilike.%${sanitizedTerm}%`)
+    .or(buildIlikeOrFilter(['name', 'email', 'address', 'qr_code'], sanitizedTerm))
     .order('created_at', { ascending: false })
   return { data, error }
 }
@@ -509,8 +523,9 @@ export const generateMissingQRCodes = async () => {
 export const deleteResident = async (id) => {
   const { data, error } = await supabase
     .from('residents')
-    .delete()
+    .update({ is_active: false })
     .eq('id', id)
+    .select()
   return { data, error }
 }
 
@@ -546,7 +561,7 @@ export const searchCollectors = async (searchTerm) => {
   const { data, error } = await supabase
     .from('collectors')
     .select('*')
-    .or(`name.ilike.%${sanitizedTerm}%,email.ilike.%${sanitizedTerm}%,vehicle_number.ilike.%${sanitizedTerm}%`)
+    .or(buildIlikeOrFilter(['name', 'email', 'vehicle_number'], sanitizedTerm))
     .order('created_at', { ascending: false })
   return { data, error }
 }
@@ -572,8 +587,9 @@ export const updateCollector = async (id, collectorData) => {
 export const deleteCollector = async (id) => {
   const { data, error } = await supabase
     .from('collectors')
-    .delete()
+    .update({ is_active: false })
     .eq('id', id)
+    .select()
   return { data, error }
 }
 
@@ -676,20 +692,7 @@ export const getCollectionLogsByTrashType = async (trashTypes) => {
     return getCollectionLogs()
   }
   
-  // ✅ For single type - use simple query
-  if (typesArray.length === 1) {
-    const { data, error } = await supabase
-      .from('collection_logs')
-      .select(`
-        *,
-        collectors (id, name, email, phone),
-        residents (id, name, address, email, phone, qr_code)
-      `)
-      .or(`trash_type.ilike.%${typesArray[0]}%,trash_types.cs.["${typesArray[0]}"]`)
-      .order('timestamp', { ascending: false })
-    return { data, error }
-  }
-  
+
   // ✅ For multiple types - use contains any (&&) operator
   // This requires the column to be a JSONB array in Supabase
   const { data, error } = await supabase
@@ -841,8 +844,9 @@ export const createCollectionLog = async (logData) => {
 export const deleteCollectionLog = async (id) => {
   const { data, error } = await supabase
     .from('collection_logs')
-    .delete()
+    .update({ is_active: false, deleted_at: new Date().toISOString() })
     .eq('id', id)
+    .select()
   return { data, error }
 }
 
@@ -1168,8 +1172,9 @@ export const updateReportStatus = async (id, status) => {
 export const deleteReport = async (id) => {
   const { data, error } = await supabase
     .from('reports')
-    .delete()
+    .update({ is_active: false, deleted_at: new Date().toISOString() })
     .eq('id', id)
+    .select()
   return { data, error }
 }
 
@@ -2481,6 +2486,18 @@ export const getReportsByDateRange = async (startDate, endDate) => {
 }
 
 export const searchReports = async (searchTerm) => {
+  const searchFilter = buildIlikeOrFilter([
+    'location',
+    'description',
+    'bin_id',
+    'trash_type',
+    'violation_type',
+  ], searchTerm)
+
+  if (!searchFilter) {
+    return getReports()
+  }
+
   const { data, error } = await supabase
     .from('reports')
     .select(`
@@ -2488,7 +2505,7 @@ export const searchReports = async (searchTerm) => {
       residents (id, name, address, email, phone, qr_code),
       collectors (id, name, email)
     `)
-    .or(`location.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%,bin_id.ilike.%${searchTerm}%,trash_type.ilike.%${searchTerm}%,violation_type.ilike.%${searchTerm}%`)
+    .or(searchFilter)
     .order('created_at', { ascending: false })
   return { data, error }
 }
@@ -2508,8 +2525,16 @@ export const searchReportsWithFilters = async (searchTerm, filters = {}) => {
     `)
 
   // Apply search term
-  if (searchTerm) {
-    query = query.or(`location.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%,bin_id.ilike.%${searchTerm}%,trash_type.ilike.%${searchTerm}%,violation_type.ilike.%${searchTerm}%`)
+  const searchFilter = buildIlikeOrFilter([
+    'location',
+    'description',
+    'bin_id',
+    'trash_type',
+    'violation_type',
+  ], searchTerm)
+
+  if (searchFilter) {
+    query = query.or(searchFilter)
   }
 
   // Apply status filter

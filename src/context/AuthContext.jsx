@@ -7,6 +7,17 @@ const AuthContext = createContext({})
 
 const ADMIN_ROLES = new Set(['admin', 'super_admin', 'administrator'])
 const REQUIRE_ADMIN_ROLE = import.meta.env.VITE_REQUIRE_ADMIN_ROLE === 'true'
+const IS_PRODUCTION = import.meta.env.PROD
+
+if (!REQUIRE_ADMIN_ROLE) {
+  const message = 'Admin role enforcement is disabled. Only use VITE_REQUIRE_ADMIN_ROLE=false for local/dev bootstrapping; production should enforce trusted Supabase app_metadata roles and RLS policies.'
+
+  if (IS_PRODUCTION) {
+    console.error(`🚨 ${message}`)
+  } else {
+    console.warn(`⚠️ ${message}`)
+  }
+}
 
 const normalizeRole = (role) => String(role || '').trim().toLowerCase()
 
@@ -293,6 +304,8 @@ export const AuthProvider = ({ children }) => {
     user,
     isAdmin,
     loading,
+    requireAdminRole: REQUIRE_ADMIN_ROLE,
+    adminRoleWarning: !REQUIRE_ADMIN_ROLE,
     signIn,
     signOut,
     createResidentAccount,

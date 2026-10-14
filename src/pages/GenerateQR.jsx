@@ -12,7 +12,7 @@ import { logActivity, ACTIONS, ENTITIES } from '../services/activityLog'
 
 const GenerateQR = () => {
   const { createResidentAccount } = useAuth()
-  const { showSuccess, showError, showWarning, showInfo, showConfirm } = useNotification()
+  const { showSuccess, showError, showWarning, showConfirm } = useNotification()
   
   const [residents, setResidents] = useState([])
   const [loading, setLoading] = useState(true)
@@ -39,17 +39,9 @@ const GenerateQR = () => {
   
   const [formErrors, setFormErrors] = useState({})
 
-  // Change Password States
+  // Resident password changes require a trusted backend function.
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false)
   const [changePasswordResident, setChangePasswordResident] = useState(null)
-  const [changePasswordData, setChangePasswordData] = useState({
-    newPassword: '',
-    confirmNewPassword: ''
-  })
-  const [showNewPassword, setShowNewPassword] = useState(false)
-  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false)
-  const [changePasswordErrors, setChangePasswordErrors] = useState({})
-  const changingPassword = false
 
   
 
@@ -294,113 +286,75 @@ const GenerateQR = () => {
 
   const handleDeleteResident = async (resident) => {
     await showConfirm({
-      title: 'Delete Resident',
+      title: 'Deactivate Resident',
       message: (
         <div className="space-y-3 text-left">
-          <p>Are you sure you want to delete <strong className="text-gray-900">"{resident.name}"</strong>?</p>
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm">
-            <p className="font-bold text-red-800 mb-2 flex items-center gap-2">
+          <p>Deactivate <strong className="text-gray-900">"{resident.name}"</strong>?</p>
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm">
+            <p className="font-bold text-amber-800 mb-2 flex items-center gap-2">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
-              This will permanently remove:
+              This preserves audit history:
             </p>
-            <ul className="text-red-700 space-y-1.5 ml-6">
+            <ul className="text-amber-700 space-y-1.5 ml-6">
               <li className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 bg-red-500 rounded-full"></span>
-                Resident profile & account
+                <span className="w-1.5 h-1.5 bg-amber-500 rounded-full"></span>
+                Resident profile is deactivated, not hard-deleted
               </li>
               <li className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 bg-red-500 rounded-full"></span>
-                Associated QR code
+                <span className="w-1.5 h-1.5 bg-amber-500 rounded-full"></span>
+                Collection and report history stays intact
               </li>
               <li className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 bg-red-500 rounded-full"></span>
-                Login credentials
+                <span className="w-1.5 h-1.5 bg-amber-500 rounded-full"></span>
+                Auth access must be revoked by a secure backend
               </li>
             </ul>
           </div>
-          <p className="text-sm text-gray-500 italic">⚠️ This action cannot be undone.</p>
+          <p className="text-sm text-gray-500 italic">The resident can be reactivated later if needed.</p>
         </div>
       ),
       type: 'danger',
-      confirmText: 'Yes, Delete',
+      confirmText: 'Deactivate',
       cancelText: 'Cancel',
       onConfirm: async () => {
         setDeleting(resident.id)
 
         try {
-          const { data: collectionLogs } = await supabase
-            .from('collection_logs')
-            .select('id')
-            .eq('resident_id', resident.id)
-            .limit(1)
-
-          const { data: reports } = await supabase
-            .from('reports')
-            .select('id')
-            .eq('resident_id', resident.id)
-            .limit(1)
-
-          const hasRelatedRecords = (collectionLogs && collectionLogs.length > 0) || (reports && reports.length > 0)
-
-          if (hasRelatedRecords) {
-            showWarning(
-              'This resident has associated collection logs or reports, so the record was deactivated instead of deleted to preserve history.',
-              'Resident Deactivated'
-            )
-          }
-
-          const mutation = hasRelatedRecords
-            ? supabase
-                .from('residents')
-                .update({ is_active: false })
-                .eq('id', resident.id)
-            : supabase
-                .from('residents')
-                .delete()
-                .eq('id', resident.id)
-
-          const { error } = await mutation
+          const { error } = await supabase
+            .from('residents')
+            .update({ is_active: false })
+            .eq('id', resident.id)
 
           if (error) throw error
 
-          setResidents(prev => hasRelatedRecords
-            ? prev.map(r => r.id === resident.id ? { ...r, is_active: false } : r)
-            : prev.filter(r => r.id !== resident.id)
-          )
-          
-          if (selectedResident?.id === resident.id) {
-            setSelectedResident(null)
-          }
+          setResidents(prev => prev.map(r => r.id === resident.id ? { ...r, is_active: false } : r))
 
           await logActivity({
-            action: hasRelatedRecords ? ACTIONS.DEACTIVATE : ACTIONS.DELETE,
+            action: ACTIONS.DEACTIVATE,
             entityType: ENTITIES.RESIDENT,
             entityId: resident.id,
             entityName: resident.name,
-            description: hasRelatedRecords
-              ? `Deactivated resident "${resident.name}" (${resident.email}) because related history exists`
-              : `Deleted resident "${resident.name}" (${resident.email})`
+            description: `Deactivated resident "${resident.name}" (${resident.email})`
           })
-          
+
           showSuccess(
-            hasRelatedRecords
-              ? `"${resident.name}" has been deactivated. Auth credentials must be revoked from a secure backend/admin console if needed.`
-              : `"${resident.name}" has been removed from the residents table. Remove the auth user from a secure backend/admin console if login must be revoked.`,
-            hasRelatedRecords ? 'Resident Deactivated' : 'Resident Deleted'
+            `"${resident.name}" has been deactivated. Auth credentials must be revoked from a secure backend/admin console if login must be blocked.`,
+            'Resident Deactivated'
           )
 
         } catch (error) {
-          console.error('Error deleting resident:', error)
+          console.error('Error deactivating resident:', error)
           showError(
-            `Failed to delete resident: ${error.message}`,
-            'Delete Failed'
+            `Failed to deactivate resident: ${error.message}`,
+            'Deactivate Failed'
           )
         } finally {
           setDeleting(null)
         }
       }
+
     })
   }
 
@@ -468,109 +422,27 @@ const GenerateQR = () => {
     })
   }
 
-  // Change Password Functions
+  // Password updates for another user require a trusted backend function.
   const handleOpenChangePassword = (resident) => {
     setChangePasswordResident(resident)
-    setChangePasswordData({
-      newPassword: '',
-      confirmNewPassword: ''
-    })
-    setChangePasswordErrors({})
-    setShowNewPassword(false)
-    setShowConfirmNewPassword(false)
     setShowChangePasswordModal(true)
   }
 
   const handleCloseChangePassword = () => {
     setShowChangePasswordModal(false)
     setChangePasswordResident(null)
-    setChangePasswordData({
-      newPassword: '',
-      confirmNewPassword: ''
-    })
-    setChangePasswordErrors({})
-  }
-
-  const handleChangePasswordInput = (e) => {
-    const { name, value } = e.target
-    setChangePasswordData(prev => ({
-      ...prev,
-      [name]: value
-    }))
-    
-    if (changePasswordErrors[name]) {
-      setChangePasswordErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }))
-    }
-  }
-
-  const generateRandomPassword = () => {
-    const length = 12
-    const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*'
-    let password = ''
-    for (let i = 0; i < length; i++) {
-      password += charset.charAt(Math.floor(Math.random() * charset.length))
-    }
-    setChangePasswordData({
-      newPassword: password,
-      confirmNewPassword: password
-    })
-    setShowNewPassword(true)
-    setShowConfirmNewPassword(true)
-    
-    showInfo('A secure password has been generated. Make sure to copy it!', 'Password Generated')
-  }
-
-  const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text)
-    showSuccess('Password copied to clipboard!', 'Copied')
-  }
-
-  const validateChangePassword = () => {
-    const errors = {}
-    
-    if (!changePasswordData.newPassword) {
-      errors.newPassword = 'New password is required'
-    } else if (changePasswordData.newPassword.length < 6) {
-      errors.newPassword = 'Password must be at least 6 characters'
-    }
-    
-    if (!changePasswordData.confirmNewPassword) {
-      errors.confirmNewPassword = 'Please confirm the new password'
-    } else if (changePasswordData.newPassword !== changePasswordData.confirmNewPassword) {
-      errors.confirmNewPassword = 'Passwords do not match'
-    }
-    
-    setChangePasswordErrors(errors)
-    return Object.keys(errors).length === 0
-  }
-
-  const handleChangePasswordSubmit = async (e) => {
-    e.preventDefault()
-    
-    if (!validateChangePassword()) {
-      showWarning('Please fix the errors before submitting', 'Validation Error')
-      return
-    }
-
-    showWarning(
-      'Password changes require a secure backend endpoint or Supabase Edge Function. The unsafe browser-based service-role implementation was disabled.',
-      'Backend Required'
-    )
   }
 
   const getPasswordStrength = (password) => {
     if (!password) return { strength: 0, label: 'Enter password', color: 'bg-gray-200' }
-    
+
     let strength = 0
     if (password.length >= 6) strength += 1
     if (password.length >= 8) strength += 1
     if (/[A-Z]/.test(password)) strength += 1
     if (/[0-9]/.test(password)) strength += 1
     if (/[^A-Za-z0-9]/.test(password)) strength += 1
-    
+
     if (strength <= 1) return { strength: 20, label: 'Very Weak', color: 'bg-red-500' }
     if (strength === 2) return { strength: 40, label: 'Weak', color: 'bg-orange-500' }
     if (strength === 3) return { strength: 60, label: 'Fair', color: 'bg-yellow-500' }
@@ -579,6 +451,7 @@ const GenerateQR = () => {
   }
 
   if (loading) {
+
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
@@ -804,8 +677,8 @@ const GenerateQR = () => {
                   
                   <button
                     onClick={() => handleOpenChangePassword(resident)}
-                    className="bg-blue-50 text-blue-600 py-3 px-4 rounded-xl hover:bg-blue-100 transition-all font-semibold flex items-center justify-center"
-                    title="Change Password"
+                    className="bg-amber-50 text-amber-700 py-3 px-4 rounded-xl hover:bg-amber-100 transition-all font-semibold flex items-center justify-center"
+                    title="Backend Required"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
@@ -816,7 +689,7 @@ const GenerateQR = () => {
                     onClick={() => handleDeleteResident(resident)}
                     disabled={deleting === resident.id}
                     className="bg-red-50 text-red-600 py-3 px-4 rounded-xl hover:bg-red-100 transition-all font-semibold flex items-center justify-center disabled:opacity-50"
-                    title="Delete Resident"
+                    title="Deactivate Resident"
                   >
                     {deleting === resident.id ? (
                       <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1215,6 +1088,7 @@ const GenerateQR = () => {
       )}
 
       {/* ==================== VIEW QR CODE MODAL ==================== */}
+
       {selectedResident && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md animate-fadeIn">
@@ -1332,6 +1206,7 @@ const GenerateQR = () => {
         </div>
       )}
 
+
       {/* ==================== CHANGE PASSWORD MODAL ==================== */}
       {showChangePasswordModal && changePasswordResident && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -1346,7 +1221,7 @@ const GenerateQR = () => {
                     </svg>
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-white">Change Password</h2>
+                    <h2 className="text-xl font-bold text-white">Backend Required</h2>
                     <p className="text-blue-100 text-sm">{changePasswordResident.name}</p>
                   </div>
                 </div>
@@ -1362,7 +1237,14 @@ const GenerateQR = () => {
             </div>
 
             {/* Modal Body */}
-            <form onSubmit={handleChangePasswordSubmit} className="p-6 space-y-6">
+            <div className="p-6 space-y-6">
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-amber-900">
+                <p className="font-semibold mb-1">Password updates are disabled in the browser.</p>
+                <p className="text-sm">
+                  Updating another user's Supabase Auth password requires a trusted backend endpoint or Supabase Edge Function using server-only credentials. This UI is intentionally read-only until that backend exists.
+                </p>
+              </div>
+
               {/* Resident Info */}
               <div className="bg-gray-50 rounded-xl p-4">
                 <div className="flex items-center gap-3">
@@ -1376,134 +1258,6 @@ const GenerateQR = () => {
                 </div>
               </div>
 
-              {/* Generate Random Password Button */}
-              <button
-                type="button"
-                onClick={generateRandomPassword}
-                className="w-full bg-gradient-to-r from-purple-50 to-purple-100 text-purple-700 px-4 py-3 rounded-xl hover:from-purple-100 hover:to-purple-200 transition-all font-semibold flex items-center justify-center gap-2 border border-purple-200"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                Generate Random Password
-              </button>
-
-              {/* New Password Field */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">New Password *</label>
-                <div className="relative">
-                  <input
-                    type={showNewPassword ? 'text' : 'password'}
-                    name="newPassword"
-                    value={changePasswordData.newPassword}
-                    onChange={handleChangePasswordInput}
-                    className={`w-full px-4 py-3 pr-20 border-2 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${
-                      changePasswordErrors.newPassword ? 'border-red-300 bg-red-50' : 'border-gray-200'
-                    }`}
-                    placeholder="Enter new password"
-                  />
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                    {changePasswordData.newPassword && (
-                      <button
-                        type="button"
-                        onClick={() => copyToClipboard(changePasswordData.newPassword)}
-                        className="text-gray-400 hover:text-gray-600 p-1"
-                        title="Copy password"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => setShowNewPassword(!showNewPassword)}
-                      className="text-gray-400 hover:text-gray-600 p-1"
-                    >
-                      {showNewPassword ? (
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                        </svg>
-                      ) : (
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                        </svg>
-                      )}
-                    </button>
-                  </div>
-                </div>
-                {changePasswordErrors.newPassword && (
-                  <p className="mt-1.5 text-sm text-red-600 flex items-center gap-1">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    {changePasswordErrors.newPassword}
-                  </p>
-                )}
-                {/* Password Strength */}
-                {changePasswordData.newPassword && (
-                  <div className="mt-2">
-                    <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full transition-all duration-300 ${getPasswordStrength(changePasswordData.newPassword).color}`}
-                        style={{ width: `${getPasswordStrength(changePasswordData.newPassword).strength}%` }}
-                      />
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">{getPasswordStrength(changePasswordData.newPassword).label}</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Confirm New Password Field */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Confirm New Password *</label>
-                <div className="relative">
-                  <input
-                    type={showConfirmNewPassword ? 'text' : 'password'}
-                    name="confirmNewPassword"
-                    value={changePasswordData.confirmNewPassword}
-                    onChange={handleChangePasswordInput}
-                    className={`w-full px-4 py-3 pr-12 border-2 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${
-                      changePasswordErrors.confirmNewPassword ? 'border-red-300 bg-red-50' : 'border-gray-200'
-                    }`}
-                    placeholder="Re-enter new password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmNewPassword(!showConfirmNewPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
-                  >
-                    {showConfirmNewPassword ? (
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                      </svg>
-                    ) : (
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-                {changePasswordErrors.confirmNewPassword && (
-                  <p className="mt-1.5 text-sm text-red-600 flex items-center gap-1">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    {changePasswordErrors.confirmNewPassword}
-                  </p>
-                )}
-                {/* Password Match Indicator */}
-                {changePasswordData.confirmNewPassword && changePasswordData.newPassword === changePasswordData.confirmNewPassword && (
-                  <p className="mt-1.5 text-sm text-green-600 flex items-center gap-1">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    Passwords match
-                  </p>
-                )}
-              </div>
 
               {/* Warning Box */}
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
@@ -1514,8 +1268,8 @@ const GenerateQR = () => {
                     </svg>
                   </div>
                   <div className="text-sm text-amber-700">
-                    <p className="font-semibold mb-1">Important</p>
-                    <p>Make sure to securely share the new password with the resident. They will need it to log in.</p>
+                    <p className="font-semibold mb-1">Backend Required</p>
+                    <p>Do not store or use a service-role key in this browser app. A backend function must verify the admin and update the resident password securely.</p>
                   </div>
                 </div>
               </div>
@@ -1527,31 +1281,17 @@ const GenerateQR = () => {
                   onClick={handleCloseChangePassword}
                   className="flex-1 px-6 py-3 border-2 border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-all font-semibold"
                 >
-                  Cancel
+                  Close
                 </button>
                 <button
-                  type="submit"
-                  disabled={changingPassword}
-                  className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  type="button"
+                  disabled
+                  className="flex-1 bg-gray-200 text-gray-500 px-6 py-3 rounded-xl font-semibold cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  {changingPassword ? (
-                    <>
-                      <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                      Updating...
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      Update Password
-                    </>
-                  )}
+                  Backend Required
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
