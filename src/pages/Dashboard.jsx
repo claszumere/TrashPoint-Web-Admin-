@@ -64,10 +64,9 @@ const Dashboard = () => {
       if (statsData) {
         console.log('📊 Dashboard Stats:', statsData)
         
-        // ✅ NEW: Ensure allTypesCount is included
         setStats({
           ...statsData,
-          allTypesCount: statsData.allTypesCount || 0
+          allTypesCount: statsData.allTypesCount || statsData.totalAllTypes || 0
         })
       }
 

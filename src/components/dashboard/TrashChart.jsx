@@ -132,12 +132,6 @@ const getIcon = (name) => {
   return ICONS['Unknown']
 }
 
-// Check if item is a multi-type category
-const isMultiTypeCategory = (name) => {
-  const lower = name?.toLowerCase() || ''
-  return ['all types', 'all-types', 'multiple types', 'multiple', 'single type', 'single'].includes(lower)
-}
-
 // Check if item is "All Types"
 const isAllTypes = (name) => {
   const lower = name?.toLowerCase() || ''
@@ -365,7 +359,6 @@ const TrashChart = ({
   showBreakdown = false,
   height = 350,
   // ✅ NEW: Props for type selection distribution
-  showTypeSelectionStats = false,
   allTypesCount = 0,
   multipleTypesCount = 0,
   singleTypeCount = 0,

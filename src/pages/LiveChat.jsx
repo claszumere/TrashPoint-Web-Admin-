@@ -64,7 +64,6 @@ const LiveChat = () => {
     };
   }, []);
 
-  // Load messages and set active user when conversation changes
   useEffect(() => {
     if (!activeConv) {
       setActiveUser(null);
@@ -73,35 +72,47 @@ const LiveChat = () => {
 
     const conv = conversations.find(c => c.conversation_id === activeConv);
     setActiveUser(conv ? { name: conv.userName, role: conv.userRole, userId: conv.userId } : null);
+  }, [activeConv, conversations]);
+
+  // Load messages and subscribe only when the active conversation changes.
+  useEffect(() => {
+    if (!activeConv) {
+      setMessages([]);
+      return;
+    }
+
+    let cancelled = false;
 
     const loadMessages = async () => {
       setLoading(true);
       try {
         const msgs = await getLiveMessages(activeConv);
-        setMessages(msgs);
-      } catch (err) {
-        showError('Failed to load messages');
+        if (!cancelled) setMessages(msgs);
+      } catch (error) {
+        console.error('Failed to load messages:', error);
+        if (!cancelled) showError('Failed to load messages');
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     loadMessages();
 
-    // Subscribe to realtime updates
     if (subscriptionRef.current) {
       supabase.removeChannel(subscriptionRef.current);
     }
     subscriptionRef.current = subscribeToLiveChat(activeConv, (newMsg) => {
-      setMessages(prev => [...prev, newMsg]);
+      setMessages(prev => prev.some(msg => msg.id && msg.id === newMsg.id) ? prev : [...prev, newMsg]);
     });
 
     return () => {
+      cancelled = true;
       if (subscriptionRef.current) {
         supabase.removeChannel(subscriptionRef.current);
+        subscriptionRef.current = null;
       }
     };
-  }, [activeConv, conversations, showError]);
+  }, [activeConv, showError]);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -136,7 +147,8 @@ const LiveChat = () => {
       }
 
       setNewMsg('');
-    } catch (err) {
+    } catch (error) {
+      console.error('Failed to send message:', error);
       showError('Failed to send message');
     }
   };

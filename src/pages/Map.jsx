@@ -84,136 +84,39 @@ const Map = () => {
     fetchReports()
   }, [fetchReports])
 
-  // Real-time subscription for new data (including synced offline data)
+  // Real-time subscription for map data. Refetching keeps stats and markers correct
+  // for INSERT/UPDATE/DELETE without duplicating rows in local state.
   useEffect(() => {
     console.log('📡 Setting up real-time subscriptions for map...')
 
-    // Subscribe to collection_logs (for synced offline data)
+    const handleRealtimeChange = () => {
+      fetchReports()
+    }
+
     const logsChannel = supabase
       .channel('map-collection-logs')
       .on(
         'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'collection_logs'
-        },
-        async (payload) => {
-          console.log('🔔 New collection log detected:', payload)
-          
-          const newRecord = payload.new
-          
-          // Check if it has valid coordinates
-          const hasCoords = newRecord.latitude != null && 
-                           newRecord.longitude != null && 
-                           newRecord.latitude !== 0 && 
-                           newRecord.longitude !== 0
-
-          if (hasCoords) {
-            // Fetch full record with relations
-            const { data: fullRecord } = await supabase
-              .from('collection_logs')
-              .select(`
-                *,
-                collectors (id, name, email, phone, vehicle_number),
-                residents (id, name, email, phone, address, qr_code)
-              `)
-              .eq('id', newRecord.id)
-              .single()
-
-            if (fullRecord) {
-              const enrichedRecord = {
-                ...fullRecord,
-                source: 'collection',
-                bin_id: fullRecord.qr_code || 'N/A',
-                description: fullRecord.notes || '',
-              }
-
-              setReports(prev => [enrichedRecord, ...prev])
-              console.log('✅ Added new collection to map')
-            }
-          } else {
-            console.log('⚠️ New collection has no coordinates - not adding to map')
-          }
-
-          // Update stats
-          setTotalStats(prev => ({
-            ...prev,
-            totalRecords: prev.totalRecords + 1,
-            collections: prev.collections + 1,
-            recordsWithCoords: hasCoords ? prev.recordsWithCoords + 1 : prev.recordsWithCoords,
-            recordsWithoutCoords: hasCoords ? prev.recordsWithoutCoords : prev.recordsWithoutCoords + 1,
-          }))
-        }
+        { event: '*', schema: 'public', table: 'collection_logs' },
+        handleRealtimeChange
       )
       .subscribe()
 
-    // Subscribe to reports
     const reportsChannel = supabase
       .channel('map-reports')
       .on(
         'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'reports'
-        },
-        async (payload) => {
-          console.log('🔔 New report detected:', payload)
-          
-          const newRecord = payload.new
-          
-          // Check if it has valid coordinates
-          const hasCoords = newRecord.latitude != null && 
-                           newRecord.longitude != null && 
-                           newRecord.latitude !== 0 && 
-                           newRecord.longitude !== 0
-
-          if (hasCoords) {
-            // Fetch full record with relations
-            const { data: fullRecord } = await supabase
-              .from('reports')
-              .select(`
-                *,
-                collectors (id, name, email),
-                residents (id, name, email, phone, address, qr_code)
-              `)
-              .eq('id', newRecord.id)
-              .single()
-
-            if (fullRecord) {
-              const enrichedRecord = {
-                ...fullRecord,
-                source: 'violation',
-                bin_id: fullRecord.bin_id || 'N/A',
-              }
-
-              setReports(prev => [enrichedRecord, ...prev])
-              console.log('✅ Added new report to map')
-            }
-          } else {
-            console.log('⚠️ New report has no coordinates - not adding to map')
-          }
-
-          // Update stats
-          setTotalStats(prev => ({
-            ...prev,
-            totalRecords: prev.totalRecords + 1,
-            violations: prev.violations + 1,
-            recordsWithCoords: hasCoords ? prev.recordsWithCoords + 1 : prev.recordsWithCoords,
-            recordsWithoutCoords: hasCoords ? prev.recordsWithoutCoords : prev.recordsWithoutCoords + 1,
-          }))
-        }
+        { event: '*', schema: 'public', table: 'reports' },
+        handleRealtimeChange
       )
       .subscribe()
 
-    // Cleanup subscriptions
     return () => {
       console.log('📡 Cleaning up map subscriptions...')
       supabase.removeChannel(logsChannel)
       supabase.removeChannel(reportsChannel)
     }
-  }, [])
+  }, [fetchReports])
 
   // ✅ MODIFIED: Filter reports - handle different trash type naming conventions including "All Types"
   const filteredReports = filterTrashType === 'all' 
@@ -276,48 +179,6 @@ const Map = () => {
   // Count by source
   const collectionsOnMap = reports.filter(r => r.source === 'collection').length
   const violationsOnMap = reports.filter(r => r.source === 'violation').length
-
-  // ✅ NEW: Helper function to get trash type styling
-  const getTrashTypeStyle = (type, isActive) => {
-    const styles = {
-      'All Types': {
-        gradient: 'from-purple-500 to-purple-600',
-        ring: 'ring-purple-300',
-        icon: '⭐',
-        label: 'All Types',
-        sublabel: 'All Categories'
-      },
-      'Biodegradable': {
-        gradient: 'from-green-500 to-green-600',
-        ring: 'ring-green-300',
-        icon: '🌿',
-        label: 'Green Type',
-        sublabel: 'Biodegradable'
-      },
-      'Non-Biodegradable': {
-        gradient: 'from-blue-500 to-blue-600',
-        ring: 'ring-blue-300',
-        icon: '🔵',
-        label: 'Blue Type',
-        sublabel: 'Non-Biodegradable'
-      },
-      'Recyclable': {
-        gradient: 'from-yellow-500 to-yellow-600',
-        ring: 'ring-yellow-300',
-        icon: '🟡',
-        label: 'Yellow Type',
-        sublabel: 'Recyclable'
-      },
-      'Hazardous': {
-        gradient: 'from-red-500 to-red-600',
-        ring: 'ring-red-300',
-        icon: '🔴',
-        label: 'Red Type',
-        sublabel: 'Hazardous'
-      }
-    }
-    return styles[type] || styles['Biodegradable']
-  }
 
   return (
     <div className="space-y-6 animate-fadeIn">

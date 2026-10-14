@@ -101,7 +101,7 @@ const QRGenerator = ({
           
           // Download
           const link = document.createElement('a')
-          link.download = `trashpoint-qr-${residentName.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.png`
+          link.download = `trashpoint-qr-${safeFileName(residentName)}-${Date.now()}.png`
           link.href = canvas.toDataURL('image/png')
           link.click()
           
@@ -129,7 +129,7 @@ const QRGenerator = ({
         const svgUrl = URL.createObjectURL(svgBlob)
         
         const link = document.createElement('a')
-        link.download = `trashpoint-qr-${residentName.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.svg`
+        link.download = `trashpoint-qr-${safeFileName(residentName)}-${Date.now()}.svg`
         link.href = svgUrl
         link.click()
         
@@ -141,6 +141,18 @@ const QRGenerator = ({
     }
   }
 
+  const escapeHtml = (input = '') => String(input)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;')
+
+  const safeFileName = (input = 'resident') => String(input)
+    .replace(/[^a-z0-9-_]+/gi, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase() || 'resident'
+
   // ============================================
   // PRINT QR CODE
   // ============================================
@@ -149,13 +161,20 @@ const QRGenerator = ({
       const svgElement = qrRef.current?.querySelector('svg')
       if (svgElement) {
         const svgData = new XMLSerializer().serializeToString(svgElement)
+        const safeResidentName = escapeHtml(residentName)
+        const safeValue = escapeHtml(value)
         
         const printWindow = window.open('', '_blank')
+        if (!printWindow) {
+          alert('Popup blocked. Please allow popups to print QR codes.')
+          return
+        }
+
         printWindow.document.write(`
           <!DOCTYPE html>
           <html>
           <head>
-            <title>TrashPoint QR Code - ${residentName}</title>
+            <title>TrashPoint QR Code - ${safeResidentName}</title>
             <style>
               * {
                 margin: 0;
@@ -228,8 +247,8 @@ const QRGenerator = ({
               <div class="qr-code">
                 ${svgData}
               </div>
-              <div class="resident-name">${residentName}</div>
-              <div class="qr-value">${value}</div>
+              <div class="resident-name">${safeResidentName}</div>
+              <div class="qr-value">${safeValue}</div>
               <div class="instructions">
                 📱 Scan this QR code during waste collection
               </div>

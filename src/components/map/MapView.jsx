@@ -44,12 +44,6 @@ const isAllTypesSelected = (types) => {
   );
 };
 
-// Check if a report contains a specific type
-const hasTrashType = (trashTypeField, targetType) => {
-  const types = parseTrashTypes(trashTypeField);
-  return types.some(t => t.toLowerCase() === targetType.toLowerCase());
-};
-
 // ✅ Map Controller Component for auto-focus functionality
 const MapController = ({ reports, filterTrashType, filterTypeSelection, getCoordinates, defaultCenter, defaultZoom }) => {
   const map = useMap()
@@ -796,7 +790,7 @@ const MapView = ({
   }
 
   // Generate coordinates
-  const getCoordinates = (report, index) => {
+  const getCoordinates = (report) => {
     if (report.latitude && report.longitude && 
         report.latitude !== 0 && report.longitude !== 0) {
       return [parseFloat(report.latitude), parseFloat(report.longitude)]

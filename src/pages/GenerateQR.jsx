@@ -49,7 +49,7 @@ const GenerateQR = () => {
   const [showNewPassword, setShowNewPassword] = useState(false)
   const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false)
   const [changePasswordErrors, setChangePasswordErrors] = useState({})
-  const [changingPassword, setChangingPassword] = useState(false)
+  const changingPassword = false
 
   
 
@@ -166,7 +166,7 @@ const GenerateQR = () => {
     
     if (!formData.email.trim()) {
       errors.email = 'Email is required'
-    } else if (!/^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/.test(formData.email)) {
+    } else if (!/^[\w.-]+@([\w-]+\.)+[\w-]{2,4}$/.test(formData.email)) {
       errors.email = 'Please enter a valid email address'
     }
     
@@ -342,38 +342,53 @@ const GenerateQR = () => {
             .eq('resident_id', resident.id)
             .limit(1)
 
-          if ((collectionLogs && collectionLogs.length > 0) || (reports && reports.length > 0)) {
+          const hasRelatedRecords = (collectionLogs && collectionLogs.length > 0) || (reports && reports.length > 0)
+
+          if (hasRelatedRecords) {
             showWarning(
-              'This resident has associated collection logs or reports. Proceeding with deletion...',
-              'Data Warning'
+              'This resident has associated collection logs or reports, so the record was deactivated instead of deleted to preserve history.',
+              'Resident Deactivated'
             )
           }
 
-          const { error } = await supabase
-            .from('residents')
-            .delete()
-            .eq('id', resident.id)
+          const mutation = hasRelatedRecords
+            ? supabase
+                .from('residents')
+                .update({ is_active: false })
+                .eq('id', resident.id)
+            : supabase
+                .from('residents')
+                .delete()
+                .eq('id', resident.id)
+
+          const { error } = await mutation
 
           if (error) throw error
 
-          setResidents(prev => prev.filter(r => r.id !== resident.id))
+          setResidents(prev => hasRelatedRecords
+            ? prev.map(r => r.id === resident.id ? { ...r, is_active: false } : r)
+            : prev.filter(r => r.id !== resident.id)
+          )
           
           if (selectedResident?.id === resident.id) {
             setSelectedResident(null)
           }
 
-          // LOG ACTIVITY: Delete Resident
           await logActivity({
-            action: ACTIONS.DELETE,
+            action: hasRelatedRecords ? ACTIONS.DEACTIVATE : ACTIONS.DELETE,
             entityType: ENTITIES.RESIDENT,
             entityId: resident.id,
             entityName: resident.name,
-            description: `Deleted resident "${resident.name}" (${resident.email})`
+            description: hasRelatedRecords
+              ? `Deactivated resident "${resident.name}" (${resident.email}) because related history exists`
+              : `Deleted resident "${resident.name}" (${resident.email})`
           })
           
           showSuccess(
-            `"${resident.name}" has been permanently removed from the system.`,
-            'Resident Deleted'
+            hasRelatedRecords
+              ? `"${resident.name}" has been deactivated. Auth credentials must be revoked from a secure backend/admin console if needed.`
+              : `"${resident.name}" has been removed from the residents table. Remove the auth user from a secure backend/admin console if login must be revoked.`,
+            hasRelatedRecords ? 'Resident Deactivated' : 'Resident Deleted'
           )
 
         } catch (error) {
@@ -539,56 +554,11 @@ const GenerateQR = () => {
       showWarning('Please fix the errors before submitting', 'Validation Error')
       return
     }
-    
-    setChangingPassword(true)
 
-    try {
-      console.log('🔐 Changing password for:', changePasswordResident.email)
-
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/auth/v1/admin/users/${changePasswordResident.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY}`,
-          'apikey': import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY
-        },
-        body: JSON.stringify({
-          password: changePasswordData.newPassword
-        })
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.message || 'Failed to update password')
-      }
-
-      console.log('✅ Password changed successfully!')
-
-      // LOG ACTIVITY: Change Password
-      await logActivity({
-        action: ACTIONS.CHANGE_PASSWORD,
-        entityType: ENTITIES.RESIDENT,
-        entityId: changePasswordResident.id,
-        entityName: changePasswordResident.name,
-        description: `Changed password for resident "${changePasswordResident.name}"`
-      })
-      
-      showSuccess(
-        `Password for "${changePasswordResident.name}" has been updated successfully. Please share the new credentials securely.`,
-        'Password Changed'
-      )
-      
-      handleCloseChangePassword()
-      
-    } catch (error) {
-      console.error('❌ Error changing password:', error)
-      showError(
-        `Failed to change password: ${error.message}`,
-        'Update Failed'
-      )
-    } finally {
-      setChangingPassword(false)
-    }
+    showWarning(
+      'Password changes require a secure backend endpoint or Supabase Edge Function. The unsafe browser-based service-role implementation was disabled.',
+      'Backend Required'
+    )
   }
 
   const getPasswordStrength = (password) => {

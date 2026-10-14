@@ -34,7 +34,7 @@ const ProtectedRoute = ({ children }) => {
 }
 
 function App() {
-  const { user } = useAuth()
+  const { user, isAdmin } = useAuth()
 
   return (
     <ToastProvider position="top-right">
@@ -45,7 +45,7 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route 
               path="/login" 
-              element={user ? <Navigate to="/dashboard" replace /> : <Login />} 
+              element={user && isAdmin ? <Navigate to="/dashboard" replace /> : <Login />} 
             />
 
             {/* Protected Admin Routes */}

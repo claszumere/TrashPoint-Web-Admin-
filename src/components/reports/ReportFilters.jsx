@@ -5,12 +5,10 @@ import {
   TRASH_TYPES_ARRAY, 
   VIOLATION_TYPES_ARRAY,
   parseTypes,
-  isAllTypes,
   getTypesDisplayString 
 } from '../../services/supabase'
 
 const ReportFilters = ({ filters, onFilterChange, stats = null }) => {
-  const [isExpanded, setIsExpanded] = useState(false)
   const [showTrashTypeDropdown, setShowTrashTypeDropdown] = useState(false)
   const [showViolationTypeDropdown, setShowViolationTypeDropdown] = useState(false)
   

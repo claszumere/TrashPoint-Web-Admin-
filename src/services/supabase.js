@@ -113,7 +113,7 @@ export const parseTypes = (types) => {
         if (Array.isArray(parsed)) {
           return parsed.filter(t => t && typeof t === 'string')
         }
-      } catch (e) {
+      } catch {
         // Not valid JSON, treat as single string
       }
     }
@@ -214,6 +214,11 @@ export const getUniqueTypes = (typesArrays) => {
   
   return Array.from(allTypes).sort()
 }
+
+const sanitizeSearchTerm = (term) => String(term ?? '')
+  .replace(/[%,()]/g, ' ')
+  .replace(/\s+/g, ' ')
+  .trim()
 
 // ==================== QR CODE UTILITIES ====================
 
@@ -415,10 +420,16 @@ export const validateAndGetResident = async (qrCode) => {
 }
 
 export const searchResidents = async (searchTerm) => {
+  const sanitizedTerm = sanitizeSearchTerm(searchTerm)
+
+  if (!sanitizedTerm) {
+    return getResidents()
+  }
+
   const { data, error } = await supabase
     .from('residents')
     .select('*')
-    .or(`name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,address.ilike.%${searchTerm}%,qr_code.ilike.%${searchTerm}%`)
+    .or(`name.ilike.%${sanitizedTerm}%,email.ilike.%${sanitizedTerm}%,address.ilike.%${sanitizedTerm}%,qr_code.ilike.%${sanitizedTerm}%`)
     .order('created_at', { ascending: false })
   return { data, error }
 }
@@ -526,10 +537,16 @@ export const getCollectors = async () => {
 }
 
 export const searchCollectors = async (searchTerm) => {
+  const sanitizedTerm = sanitizeSearchTerm(searchTerm)
+
+  if (!sanitizedTerm) {
+    return getCollectors()
+  }
+
   const { data, error } = await supabase
     .from('collectors')
     .select('*')
-    .or(`name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,vehicle_number.ilike.%${searchTerm}%`)
+    .or(`name.ilike.%${sanitizedTerm}%,email.ilike.%${sanitizedTerm}%,vehicle_number.ilike.%${sanitizedTerm}%`)
     .order('created_at', { ascending: false })
   return { data, error }
 }
@@ -2046,6 +2063,7 @@ export const getDashboardStats = async () => {
       // "All Types" stats
       allTypesReports,
       allTypesLogs,
+      allTypesCount: allTypesReports + allTypesLogs,
       totalAllTypes: allTypesReports + allTypesLogs,
       
       // By status (violations only)
@@ -2070,15 +2088,17 @@ export const getDashboardStats = async () => {
  */
 export const getViolationsByType = async () => {
   try {
-    const { data: reports } = await supabase.from('reports').select('trash_types, trash_type, violation_types, violation_type')
-    const { data: logs } = await supabase.from('collection_logs').select('trash_types, trash_type')
+    const { data: reports, error } = await supabase
+      .from('reports')
+      .select('trash_types, trash_type, violation_types, violation_type')
+
+    if (error) throw error
   
     const allReports = reports || []
-    const allLogs = logs || []
-    const combined = [...allReports, ...allLogs]
 
-    // ✅ Count each type occurrence (handles multi-type)
-    const trashTypeCounts = countTypeOccurrences(combined, 'trash_types', normalizeTrashType)
+    // Count only report/violation rows. Collection logs are normal activity and
+    // should not inflate violation charts.
+    const trashTypeCounts = countTypeOccurrences(allReports, 'trash_types', normalizeTrashType)
     
     // Total is sum of all type occurrences (not record count)
     const total = Object.values(trashTypeCounts).reduce((sum, count) => sum + count, 0)
@@ -2102,7 +2122,7 @@ export const getViolationsByType = async () => {
     }
 
     // ✅ NEW: Count records with multiple types
-    const multiTypeCount = combined.filter(r => {
+    const multiTypeCount = allReports.filter(r => {
       const types = parseTypes(r.trash_types || r.trash_type)
       return types.length > 1
     }).length
@@ -2112,7 +2132,7 @@ export const getViolationsByType = async () => {
         violations, 
         percentages, 
         total,
-        recordCount: combined.length,
+        recordCount: allReports.length,
         multiTypeCount,
       }, 
       error: null 

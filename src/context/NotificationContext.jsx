@@ -189,9 +189,6 @@ export const NotificationProvider = ({ children }) => {
     isLoading: false
   })
 
-  // Store the resolve function for the promise
-  const [confirmResolve, setConfirmResolve] = useState(null)
-
   // Toast Functions
   const addToast = useCallback((toast) => {
     const id = Date.now() + Math.random()

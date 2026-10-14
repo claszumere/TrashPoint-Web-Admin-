@@ -5,6 +5,45 @@ import { supabase, getCurrentUser, signIn as supabaseSignIn, signOut as supabase
 
 const AuthContext = createContext({})
 
+const ADMIN_ROLES = new Set(['admin', 'super_admin', 'administrator'])
+const REQUIRE_ADMIN_ROLE = import.meta.env.VITE_REQUIRE_ADMIN_ROLE === 'true'
+
+const normalizeRole = (role) => String(role || '').trim().toLowerCase()
+
+const roleMatches = (role) => ADMIN_ROLES.has(normalizeRole(role))
+
+const userHasAdminRole = (user) => {
+  if (!user) return false
+
+  // app_metadata is server-controlled in Supabase and should be the source of
+  // truth for production authorization. user_metadata fallback is kept only to
+  // avoid locking out existing local/demo accounts during migration.
+  const metadataSources = [
+    user.app_metadata,
+    user.user_metadata,
+    user.raw_app_meta_data,
+    user.raw_user_meta_data,
+  ].filter(Boolean)
+
+  return metadataSources.some(metadata => {
+    const roleCandidates = [
+      metadata.role,
+      metadata.user_role,
+      metadata.account_role,
+      metadata.type,
+    ]
+
+    const arrayCandidates = [
+      metadata.roles,
+      metadata.user_roles,
+      metadata.permissions,
+    ]
+
+    return roleCandidates.some(roleMatches) ||
+      arrayCandidates.some(value => Array.isArray(value) && value.some(roleMatches))
+  })
+}
+
 export const useAuth = () => {
   const context = useContext(AuthContext)
   if (!context) {
@@ -28,9 +67,9 @@ export const AuthProvider = ({ children }) => {
       try {
         const { user: currentUser } = await getCurrentUser()
         setUser(currentUser)
+        setIsAdmin(currentUser ? (!REQUIRE_ADMIN_ROLE || userHasAdminRole(currentUser)) : false)
         
         if (currentUser) {
-          setIsAdmin(true)
           // Store session
           const { data } = await supabase.auth.getSession()
           if (data?.session) {
@@ -60,7 +99,7 @@ export const AuthProvider = ({ children }) => {
         if (event === 'SIGNED_IN') {
           const currentUser = session?.user ?? null
           setUser(currentUser)
-          setIsAdmin(!!currentUser)
+          setIsAdmin(currentUser ? (!REQUIRE_ADMIN_ROLE || userHasAdminRole(currentUser)) : false)
           if (session) {
             adminSession.current = session
           }
@@ -87,7 +126,7 @@ export const AuthProvider = ({ children }) => {
       if (error) throw error
       
       setUser(data.user)
-      setIsAdmin(true)
+      setIsAdmin(!REQUIRE_ADMIN_ROLE || userHasAdminRole(data.user))
       
       const { data: sessionData } = await supabase.auth.getSession()
       if (sessionData?.session) {
@@ -257,7 +296,7 @@ export const AuthProvider = ({ children }) => {
     signIn,
     signOut,
     createResidentAccount,
-    createCollectorAccount,  // 🆕 Added
+    createCollectorAccount,
   }
 
   return (

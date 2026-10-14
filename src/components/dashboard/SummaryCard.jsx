@@ -50,7 +50,7 @@ const TypesBreakdown = ({ breakdown, compact = false }) => {
   if (!breakdown || Object.keys(breakdown).length === 0) return null
 
   const entries = Object.entries(breakdown)
-    .filter(([_, count]) => count > 0)
+    .filter(([, count]) => count > 0)
     .sort((a, b) => b[1] - a[1])
 
   if (compact) {
@@ -175,14 +175,7 @@ const SummaryCard = ({
   highlighted = false,       // Add special highlight effect
   pulseAnimation = false,    // Add pulse animation to value
 }) => {
-  let navigate;
-  
-  try {
-    navigate = useNavigate()
-  } catch (error) {
-    console.warn('useNavigate not available, will use window.location')
-    navigate = null
-  }
+  const navigate = useNavigate()
 
   // ✅ MODIFIED: Added indigo color for multi-types
   const colorClasses = {
@@ -326,11 +319,7 @@ const SummaryCard = ({
   const handleNavigation = (path) => {
     console.log('🔗 Navigating to:', path)
     
-    if (navigate) {
-      navigate(path)
-    } else {
-      window.location.href = path
-    }
+    navigate(path)
   }
 
   const handleViewDetailsClick = (e) => {

@@ -441,7 +441,6 @@ const ReportsTable = ({ reports, onDeleteReport, onUpdateStatus }) => {
         </thead>
         <tbody className="divide-y divide-gray-200">
           {sortedReports.map((report, index) => {
-            const statusInfo = getStatusBadge(report.status)
             const isExpanded = expandedRow === report.id
             const isNew = report.status === 'reported'
             

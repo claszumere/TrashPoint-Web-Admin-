@@ -3,12 +3,10 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../services/supabase'
 import { getCollectors } from '../services/supabase'
-import { useAuth } from '../context/AuthContext'
 import { useNotification } from '../context/NotificationContext'
 import { logActivity, ACTIONS, ENTITIES } from '../services/activityLog'
 
 const Collectors = () => {
-  const { createResidentAccount } = useAuth()
   const { showSuccess, showError, showWarning, showInfo } = useNotification()
   
   const [collectors, setCollectors] = useState([])
@@ -29,7 +27,7 @@ const Collectors = () => {
   })
   
   const [submitting, setSubmitting] = useState(false)
-  const [deleting, setDeleting] = useState(null)
+  const [deleting] = useState(null)
   
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
@@ -136,7 +134,7 @@ const Collectors = () => {
     
     if (!formData.email.trim()) {
       errors.email = 'Email is required'
-    } else if (!/^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/.test(formData.email)) {
+    } else if (!/^[\w.-]+@([\w-]+\.)+[\w-]{2,4}$/.test(formData.email)) {
       errors.email = 'Please enter a valid email address'
     }
     
@@ -299,37 +297,65 @@ const Collectors = () => {
 
     try {
       if (actionType === 'delete') {
-        // Delete collector
-        const { error } = await supabase
-          .from('collectors')
-          .delete()
-          .eq('id', collectorData.id)
+        const { data: collectionLogs } = await supabase
+          .from('collection_logs')
+          .select('id')
+          .eq('collector_id', collectorData.id)
+          .limit(1)
+
+        const { data: reports } = await supabase
+          .from('reports')
+          .select('id')
+          .eq('collector_id', collectorData.id)
+          .limit(1)
+
+        const hasRelatedRecords = (collectionLogs && collectionLogs.length > 0) || (reports && reports.length > 0)
+
+        const mutation = hasRelatedRecords
+          ? supabase
+              .from('collectors')
+              .update({ is_active: false })
+              .eq('id', collectorData.id)
+          : supabase
+              .from('collectors')
+              .delete()
+              .eq('id', collectorData.id)
+
+        const { error } = await mutation
 
         if (error) throw error
 
-        setCollectors(prev => prev.filter(c => c.id !== collectorData.id))
+        setCollectors(prev => hasRelatedRecords
+          ? prev.map(c => c.id === collectorData.id ? { ...c, is_active: false } : c)
+          : prev.filter(c => c.id !== collectorData.id)
+        )
         
         if (selectedCollector?.id === collectorData.id) {
-          setSelectedCollector(null)
+          setSelectedCollector(hasRelatedRecords ? { ...selectedCollector, is_active: false } : null)
         }
 
         await logActivity({
-          action: ACTIONS.DELETE,
+          action: hasRelatedRecords ? ACTIONS.DEACTIVATE : ACTIONS.DELETE,
           entityType: ENTITIES.COLLECTOR,
           entityId: collectorData.id,
           entityName: collectorData.name,
-          description: `Deleted collector: ${collectorData.name}`,
+          description: hasRelatedRecords
+            ? `Deactivated collector: ${collectorData.name} because related history exists`
+            : `Deleted collector: ${collectorData.name}`,
           metadata: {
             email: collectorData.email,
             vehicle_number: collectorData.vehicle_number,
             assigned_area: collectorData.assigned_area,
-            was_active: collectorData.is_active
+            was_active: collectorData.is_active,
+            preservedHistory: hasRelatedRecords
           }
         })
 
         showSuccess(
-          `"${collectorData.name}" has been permanently removed from the system.`,
-          'Collector Deleted'
+          hasRelatedRecords
+            ? `"${collectorData.name}" has been deactivated to preserve related reports/collections. Revoke auth access from a secure backend/admin console if needed.`
+            : `"${collectorData.name}" has been removed from the collectors table. Remove the auth user from a secure backend/admin console if login must be revoked.`,
+          hasRelatedRecords ? 'Collector Deactivated' : 'Collector Deleted'
         )
 
       } else if (actionType === 'toggle') {

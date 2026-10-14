@@ -86,12 +86,6 @@ export const ConfirmProvider = ({ children }) => {
     return confirmed;
   }, [confirm]);
 
-  const closeConfirm = useCallback(() => {
-    if (!isLoading) {
-      setConfirmState(prev => ({ ...prev, isOpen: false }));
-    }
-  }, [isLoading]);
-
   return (
     <ConfirmContext.Provider value={{ confirm, confirmAsync }}>
       {children}
@@ -212,7 +206,7 @@ const renderMessage = (message) => {
     console.warn('ConfirmModal received an object as message:', message);
     try {
       return <p>{JSON.stringify(message, null, 2)}</p>;
-    } catch (e) {
+    } catch {
       return <p>Error: Unable to display message</p>;
     }
   }
